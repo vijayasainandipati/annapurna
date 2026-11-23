@@ -1,0 +1,33 @@
+# Environments
+.venv/
+backend/.venv/
+.uv_cache/
+.uv_python/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database & Runtime
+.pgdata/
+*.log
+
+# Node & Next.js
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
