@@ -13,9 +13,10 @@ from app.models.sales import SalesOrder, SalesOrderItem, Invoice, Dispatch
 from app.models.finance import Payment
 from app.models.outbox import OutboxEvent
 
-async def run_seed():
+async def run_seed(session_maker=None):
     print("🌱 Starting Annapurna canonical seed process...")
-    async with AsyncSessionLocal() as session:
+    maker = session_maker or AsyncSessionLocal
+    async with maker() as session:
         # Clear transactional tables first to ensure clean idempotency
         await session.execute(delete(Payment))
         await session.execute(delete(Dispatch))

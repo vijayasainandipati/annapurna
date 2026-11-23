@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.permissions import get_current_user
 from app.models.user import User
-from app.models.master import Material, Product, Customer, BOM
+from app.models.master import Material, Product, Customer, BOM, BOMLine
 from app.schemas.master import MaterialResponse, ProductResponse, CustomerResponse, BOMResponse
 
 router = APIRouter(prefix="/masters", tags=["Business Masters"])
@@ -49,7 +49,7 @@ async def get_product_bom(
     stmt = (
         select(BOM)
         .where(BOM.product_id == product_id, BOM.is_active == True)
-        .options(selectinload(BOM.lines))
+        .options(selectinload(BOM.lines).selectinload(BOMLine.material))
     )
     result = await db.execute(stmt)
     bom = result.scalar_one_or_none()
