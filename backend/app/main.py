@@ -5,6 +5,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.masters.router import router as masters_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.production.router import router as production_router
+from app.modules.sales.router import router as sales_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -28,6 +29,7 @@ app.include_router(auth_router, prefix=settings.API_V1_STR)
 app.include_router(masters_router, prefix=settings.API_V1_STR)
 app.include_router(inventory_router, prefix=settings.API_V1_STR)
 app.include_router(production_router, prefix=settings.API_V1_STR)
+app.include_router(sales_router, prefix=settings.API_V1_STR)
 
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
 async def health_check():
