@@ -1,0 +1,22 @@
+{
+  "name": "Annapurna — Order-to-Audit Manufacturing Operations",
+  "short_name": "Annapurna",
+  "description": "Manufacturing Operations & Audit Intelligence for South Indian Packaged-Snack Factories",
+  "start_url": "/salesman",
+  "display": "standalone",
+  "background_color": "#FFFBF5",
+  "theme_color": "#C45C26",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

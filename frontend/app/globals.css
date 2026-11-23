@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFFBF5;
+    color: #2C2A26;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-serif-header {
+    font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Custom scrollbars with warm vintage feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FDF6E9;
+}
+::-webkit-scrollbar-thumb {
+  background: #D9C5B2;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C45C26;
+}
+
+/* Brass and Terracotta accents */
+.border-vintage {
+  border-color: #EADBCE;
+}
+
+.bg-pattern {
+  background-color: #FFFBF5;
+  background-image: radial-gradient(#E07A3D18 1px, transparent 1px);
+  background-size: 20px 20px;
+}
