@@ -1,67 +1,172 @@
 # Annapurna — Order-to-Audit System
-
-> **From the first order to the final audit.**  
+> **அன்னபூர்ணா • From the first order to the final audit.**  
 > A premium, production-first, real-time manufacturing operations and audit intelligence web application built for small South Indian packaged-snack manufacturers (Murukku, mixture, chips, sweets).
 
 ---
 
-## 1. About the Product
+## 1. Executive Summary
 
-Annapurna replaces fragmented WhatsApp orders, physical notebooks, arbitrary spreadsheets, and unrecorded stock adjustments with an immutable, single source of truth:
+Annapurna connects the entire snack factory floor into a single immutable system of record:
 
 $$\text{Sales Order} \rightarrow \text{Approval} \rightarrow \text{GST Invoice} \rightarrow \text{Dispatch} \rightarrow \text{Payment} \rightarrow \text{Production} \rightarrow \text{Material Consumption} \rightarrow \text{Finished Goods} \rightarrow \text{Costing} \rightarrow \text{Audit Reports}$$
 
----
-
-## 2. Locked Technology Stack
-
-- **Frontend:** Next.js 15 (App Router) + TypeScript
-- **Styling:** Tailwind CSS (Vintage Kitchen Premium Design System)
-- **State Management:** TanStack Query (server state), Zustand (client offline queue)
-- **Backend API:** Python 3.12 + FastAPI (Async REST)
-- **ORM & Migrations:** SQLAlchemy 2.0 (Async) + Alembic
-- **Database:** PostgreSQL 16 (`NUMERIC` precision for all money and quantities)
-- **Realtime Pub/Sub:** Python-SocketIO (ASGI) + Redis Pub/Sub + Transactional Outbox
-- **Authentication:** JWT Bearer Authentication + Argon2id / Bcrypt password hashing
-- **Exports:** ReportLab (GST PDF Invoices & Reports) + openpyxl (Excel registers)
-- **Visual Assets:** Nano Banana (Authentic South Indian kitchen mural illustrations)
+- **One Source of Truth:** PostgreSQL is the single transactional source of truth; all stock and monetary values use exact decimal representations (`NUMERIC` / `Decimal`), completely eliminating floating-point errors.
+- **Traceable Ledger:** Stock balances are dynamically projected from an append-only `stock_ledger` table; closing stocks can never be manually overwritten.
+- **Real-time Pub/Sub:** Fast transactional outbox events dispatched via Python Socket.IO with role-based and user-specific rooms.
+- **Authentic Brand Character:** Vintage South Indian brass, terracotta, and warm paper aesthetic with bilingual Tamil/English operational hints.
+- **Field-Ready PWA:** Salesmen can book orders in under 45 seconds on mobile with IndexedDB offline queuing and UUID idempotency synchronization.
 
 ---
 
-## 3. Benchmark Verification Reference
+## 2. High-Level Architecture
 
-Annapurna is benchmarked against the canonical factory scenario:
-
-1. **Opening Stock:**
-   - Flour: 100 kg @ ₹42/kg
-   - Oil: 30 L @ ₹140/L
-   - Spice mix: 5 kg @ ₹200/kg
-   - 200g Pouches: 500 pcs @ ₹2.50 each
-   - Cartons: 30 pcs @ ₹15 each
-   - Finished Murukku (200g): 50 packets
-2. **Purchase:** 60 kg flour @ ₹45/kg (Flour weighted average rate becomes ₹43.125/kg)
-3. **Production Batch (Murukku 200g):**
-   - Issued: 40 kg flour, 10.5 L oil (+5% variance), 1.2 kg spice mix
-   - Output: 188 good packets (-6% yield variance)
-   - Packaging: 194 pouches consumed (188 good + 6 damaged), 9 cartons used (180 packets packed + 8 loose)
-   - Overheads: ₹1,200 labour + ₹600 power/gas
-   - Total batch cost: ₹5,855.00 $\rightarrow$ ₹31.14 per packet
-   - Finished stock becomes: 50 + 188 = 238 packets
-4. **Sales & GST (Retailer A - Tamil Nadu):**
-   - 150 packets @ ₹50 = ₹7,500 taxable
-   - CGST (2.5%) = ₹187.50, SGST (2.5%) = ₹187.50 $\rightarrow$ Invoice Total = ₹7,875.00
-   - Finished stock after dispatch = 238 - 150 = 88 packets
-5. **Stock Guardrail (Distributor B - Karnataka):**
-   - Requested: 120 packets. Shortage flagged: 32 packets (only 88 available).
-6. **Payment Allocation:**
-   - Retailer A pays ₹4,000 $\rightarrow$ Outstanding balance: ₹3,875.00.
+```text
+                  SALESMAN / ADMIN / PRODUCTION / OWNER / ACCOUNTANT
+                                         │
+                                         ▼
+                            NEXT.JS 15 FRONTEND (PWA)
+                      App Router + TypeScript + Tailwind CSS
+                                         │
+                                         ▼ REST API / Socket.IO
+                              FASTAPI APPLICATION
+                                 (Python 3.12)
+                                         │
+            ┌────────────────────────────┼────────────────────────────┐
+            ▼                            ▼                            ▼
+      SALES MODULE               PRODUCTION MODULE            INVENTORY & FINANCE
+    • Idempotent Orders        • BOM Recipe Scaling         • Immutable Stock Ledger
+    • Intra/Interstate GST     • Yield & Scrap Tracking     • Weighted-Average Valuation
+    • Dispatch Shortage Guard  • Batch Costing Engine       • FIFO Payment Allocation
+            │                            │                            │
+            └────────────────────────────┼────────────────────────────┘
+                                         ▼
+                         POSTGRESQL 16 (Source of Truth)
+                            SQLAlchemy 2.0 Async ORM
+                                         │
+                                         ▼ Transactional Outbox
+                              REDIS PUB/SUB & SOCKET.IO
+                                         │
+                                         ▼
+                              AUTHORIZED CLIENT ROOMS
+                         (role:admin, role:owner, etc.)
+```
 
 ---
 
-## 4. Documentation Index
+## 3. Canonical Benchmark Verification Results
 
-- [PRD (Product Requirements)](file:///C:/Users/Vijayasai/Desktop/Annapurna/docs/PRD.md)
-- [Architecture & Tech Specs](file:///C:/Users/Vijayasai/Desktop/Annapurna/docs/ARCHITECTURE.md)
-- [Business Rules & Formulas](file:///C:/Users/Vijayasai/Desktop/Annapurna/docs/BUSINESS_RULES.md)
-- [Database ER Design](file:///C:/Users/Vijayasai/Desktop/Annapurna/docs/DATABASE_DESIGN.md)
-- [Implementation Plan & Phase Roadmaps](file:///C:/Users/Vijayasai/Desktop/Annapurna/docs/IMPLEMENTATION_PLAN.md)
+Annapurna has been verified against the exact locked factory benchmark:
+
+| Step | Milestone / Metric | Specification | Annapurna Verified Value | Verification Status |
+|---|---|---|---|---|
+| **0** | **Opening Inventory Valuation** | 100kg Flour, 30L Oil, 5kg Spices, 500 Pouches, 30 Boxes, 50pkts Murukku | **₹12,600.00** | **100% Match** |
+| **1** | **Raw Material Inward Purchase** | 60 kg Rice Flour @ ₹45.00/kg (100 kg @ ₹42 opening) | **WAR = ₹43.1250/kg, Closing: 160.00 kg** | **100% Match** |
+| **2** | **Batch Production Target vs Actual** | BOM v1.0 Target: 200 pkts $\rightarrow$ Actual output: 188 pkts | **Yield Variance: -6.00% (Flagged)** | **100% Match** |
+| **2** | **Packaging Scrap Accounting** | 6 damaged pouches, 9 cartons used (180 pkts) | **Scrap: 3.09%, Loose Packets: 8 pkts** | **100% Match** |
+| **2** | **Material Consumption Variances** | Flour 40kg (0%), Cooking Oil 10.5L (+5%), Spices 1.2kg (0%) | **Oil +5.00% Variance Alert Flagged** | **100% Match** |
+| **2** | **Total Batch Cost Breakdown** | RM: ₹3,435 + Pkg: ₹620 + Labour: ₹1,200 + Overhead: ₹600 | **Total: ₹5,855.00 (₹31.14 / packet)** | **100% Match** |
+| **2** | **Closing Finished Goods Stock** | 50 opening + 188 output | **238.00 packets** | **100% Match** |
+| **3** | **Retailer A Order (Tamil Nadu)** | 150 pkts @ ₹50.00 base = ₹7,500.00 | **Intrastate: 2.5% CGST (₹187.50) + 2.5% SGST (₹187.50)** | **100% Match** |
+| **3** | **Retailer A GST Invoice Total** | ₹7,500 + ₹187.50 + ₹187.50 | **₹7,875.00 (ReportLab PDF Generated)** | **100% Match** |
+| **4** | **Retailer A Dispatch** | 150 packets deducted from 238 packets | **Remaining Stock: exactly 88 packets** | **100% Match** |
+| **5** | **Distributor B Order (Karnataka)** | 120 pkts @ ₹50.00 base = ₹6,000.00 | **Interstate: 5% IGST (₹300.00) = ₹6,300.00** | **100% Match** |
+| **5** | **Dispatch Shortage Guard** | 120 pkts requested vs 88 pkts available | **Shortage: 32 pkts $\rightarrow$ Over-dispatch Blocked (400)** | **100% Match** |
+| **6** | **Retailer A Partial Payment** | ₹4,000.00 paid via NEFT (Ref: NEFT-TN-98124) | **Invoice & Customer Balance: exactly ₹3,875.00** | **100% Match** |
+| **6** | **Aged Receivables (0-30 Days)** | Retailer A (₹3,875.00) + Distributor B (₹6,300.00) | **Total Active Receivables: ₹10,175.00** | **100% Match** |
+| **7** | **GSTR-1 Outward Summary** | B2B Intrastate: ₹7,500.00; B2B Interstate: ₹6,000.00 | **Total Taxable: ₹13,500.00; Total Tax: ₹675.00** | **100% Match** |
+| **7** | **Sales Register & Excel Export** | 2 Invoices, ₹14,175.00 sales, ₹4,000.00 collected | **Excel (.xlsx) & CSV Generated via openpyxl** | **100% Match** |
+| **8** | **Realtime Transactional Outbox** | Stock, Order, Production & Payment Events | **Published via Socket.IO Role & User Rooms** | **100% Match** |
+
+---
+
+## 4. Test Suite Summary
+
+The backend contains **26 automated tests** covering all operational modules:
+
+```bash
+backend/tests/
+├── test_auth_rbac.py                   # 12 tests: JWT authentication, password verification, 5 factory roles
+├── test_inventory_ledger.py             # 4 tests: Opening balances, purchase receipts, WAR valuation, reconciliation
+├── test_production_engine.py           # 3 tests: Batch runs, scrap accounting, variance flags, atomic rollback
+├── test_sales_gst_dispatch.py          # 2 tests: Intra/interstate GST, ReportLab PDF, shortage locks, idempotency
+├── test_payments_reports.py            # 1 test: Payment allocation, aged receivables (0-90+ days), openpyxl Excel
+├── test_realtime.py                    # 3 tests: Socket.IO handshake, room routing, transactional outbox publishing
+└── test_e2e_benchmark_canonical.py     # 1 test: End-to-end multi-step benchmark validation from clean seed
+```
+
+**Run all tests:**
+```powershell
+Set-Location 'backend'
+& .\.venv\Scripts\python.exe -m pytest -v
+```
+
+---
+
+## 5. Factory Demo Credentials (1-Click Login)
+
+| Role | Username | Password | Full Name & Title |
+|---|---|---|---|
+| **Admin** | `admin` | `Admin123!` | Kalyanasundaram (Factory Administrator) |
+| **Owner** | `owner` | `Owner123!` | Annapurna Sundaram (Factory Owner) |
+| **Salesman A** | `salesman_a` | `Salesman123!` | Senthil Kumar (Tamil Nadu Sales) |
+| **Salesman B** | `salesman_b` | `Salesman123!` | Venkatesh Rao (Karnataka Sales) |
+| **Supervisor** | `supervisor` | `Supervisor123!` | Muthuvel (Production Supervisor) |
+| **Accountant** | `accountant` | `Accountant123!` | Ramanathan (Factory Accountant & Auditor) |
+
+---
+
+## 6. How to Run Locally
+
+### Prerequisites
+- Python 3.12
+- Node.js 20+
+- PostgreSQL 16
+- Redis (optional, in-memory outbox fallback supported)
+
+### Step 1: Start PostgreSQL
+```powershell
+& "C:\Program Files\PostgreSQL\16\bin\postgres.exe" -D "c:\Users\Vijayasai\Desktop\Annapurna\.pgdata"
+```
+
+### Step 2: Run Backend Server
+```powershell
+Set-Location 'c:\Users\Vijayasai\Desktop\Annapurna\backend'
+& .\.venv\Scripts\python.exe -m uvicorn app.main:asgi_app --host 127.0.0.1 --port 8000 --reload
+```
+- Interactive OpenAPI Docs: [http://127.0.0.1:8000/api/v1/docs](http://127.0.0.1:8000/api/v1/docs)
+
+### Step 3: Run Frontend Development Server
+```powershell
+Set-Location 'c:\Users\Vijayasai\Desktop\Annapurna\frontend'
+npm run dev
+```
+- Open in browser: [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 7. How to Run with Docker Compose
+
+```bash
+docker compose up --build
+```
+This spins up:
+- `annapurna-postgres` on port 5433
+- `annapurna-redis` on port 6379
+- `annapurna-backend` on port 8000
+- `annapurna-frontend` on port 3000
+
+---
+
+## 8. Git Commit Log
+
+```text
+4eb6e6d test(benchmark): add comprehensive end-to-end canonical benchmark test suite with 100% mathematical validation
+1268893 feat(frontend-pwa): complete Phase 7 & 8 Next.js 15 App Router frontend, role-specific operational screens, and offline PWA sync queue
+863fd0a feat(realtime): complete Phase 6 Socket.IO server, JWT authentication handshake, room routing, and transactional outbox dispatcher
+3323080 feat(finance-reports): complete Phase 5 payment allocation, aged receivables, and audit report generation with openpyxl
+09a3b7a feat(sales): complete Phase 4 sales orders, GST calculations, ReportLab PDF invoices, and stock dispatches
+ba7fc1d feat(production): complete Phase 3 BOM recipe scaling, material issues, variance alerts, batch costing, and atomic ledger posting
+50b2839 feat(inventory): complete Phase 2 immutable stock ledger, weighted-average rate valuation, purchase receipts, and audit reconciliation
+3af8c54 feat(backend): complete Phase 1 backend foundation, database schema, alembic migrations, jwt auth, rbac, and repeatable seed data
+110f331 docs: complete Phase 0 repository audit, architecture, prd, business rules, and implementation plan
+```
