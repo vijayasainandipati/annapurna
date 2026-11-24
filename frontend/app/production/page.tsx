@@ -10,15 +10,21 @@ import {
   Clock, 
   Layers, 
   Plus, 
-  IndianRupee 
+  IndianRupee,
+  ScrollText,
+  Search,
+  Filter,
+  Check,
+  Percent
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function ProductionPage() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'RUNS' | 'BOM' | 'NEW_RUN'>('RUNS');
   const [selectedBomId, setSelectedBomId] = useState<string>('');
   const [plannedQty, setPlannedQty] = useState<string>('200.0000');
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [activeRunModal, setActiveRunModal] = useState<any | null>(null);
 
   // Form states for posting batch
   const [goodOutput, setGoodOutput] = useState<number>(188);
@@ -29,7 +35,8 @@ export default function ProductionPage() {
   const [spiceQty, setSpiceQty] = useState<string>('1.2000');
   const [labourCost, setLabourCost] = useState<string>('1200.00');
   const [gasPowerCost, setGasPowerCost] = useState<string>('600.00');
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: products } = useQuery({
     queryKey: ['masters', 'products'],
@@ -49,35 +56,39 @@ export default function ProductionPage() {
     queryFn: () => api.masters.getMaterials(),
   });
 
-  const { data: runs } = useQuery({
+  const { data: runs, isLoading: runsLoading } = useQuery({
     queryKey: ['production', 'runs'],
     queryFn: () => api.production.getRuns(),
   });
 
-  // Material map
   const matMap: Record<string, any> = {};
   materials?.forEach((m: any) => { matMap[m.code] = m; });
 
-  // Handle Create Run
   const handleCreateRun = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bomData) return;
+    setIsSubmitting(true);
     try {
       const res = await api.production.createRun({
         bom_id: bomData.id,
         planned_quantity: plannedQty,
-        notes: 'Murukku 200g Canonical Batch'
+        notes: 'Batch scheduled via Production Desk'
       });
-      setActiveRunId(res.run_id);
       queryClient.invalidateQueries({ queryKey: ['production'] });
-      setActionMessage(`Draft Production Run ${res.batch_number} created.`);
+      setActiveTab('RUNS');
+      setActionNotice({ 
+        type: 'success', 
+        message: `Draft Production Run ${res.batch_number} created for ${plannedQty} packets.` 
+      });
     } catch (err: any) {
-      alert(`Error creating run: ${err.message}`);
+      setActionNotice({ type: 'error', message: `Error creating run: ${err.message}` });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Handle Post Run
   const handlePostRun = async (runId: string) => {
+    setIsSubmitting(true);
     try {
       const payload = {
         actual_good_output: goodOutput,
@@ -96,251 +107,321 @@ export default function ProductionPage() {
       const res = await api.production.postRun(runId, payload);
       queryClient.invalidateQueries({ queryKey: ['production'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      setActionMessage(`Batch ${res.batch_number} posted! Yield: ${res.yield_variance_percent}%, Unit Cost: ₹${res.cost_per_packet}`);
+      setActiveRunModal(null);
+      setActionNotice({ 
+        type: 'success', 
+        message: `Batch ${res.batch_number} successfully posted! Yield: ${res.yield_variance_percent}%, Unit Cost: ₹${res.cost_per_packet}. Finished goods added to stock.` 
+      });
     } catch (err: any) {
-      alert(`Error posting batch: ${err.message}`);
+      setActionNotice({ type: 'error', message: `Error posting batch: ${err.message}` });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Live calculations preview
-  const plannedVal = parseFloat(plannedQty) || 200;
-  const yieldVariance = (((goodOutput - plannedVal) / plannedVal) * 100).toFixed(2);
-  const totalPouches = goodOutput + damagedPouches;
-  const scrapPercent = totalPouches > 0 ? ((damagedPouches / totalPouches) * 100).toFixed(2) : '0.00';
-
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="border-b border-vintage pb-4 flex justify-between items-center">
+    <div className="space-y-6">
+      {/* Enterprise Header */}
+      <div className="border-b border-vintage pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-annapurna-ink flex items-center space-x-2">
-            <Factory className="w-6 h-6 text-annapurna-terracotta" />
-            <span>Production & Recipe BOM Engine</span>
-          </h1>
-          <p className="text-xs text-annapurna-ink-muted mt-1">
-            Batch Manufacturing • Recipe Ingredients • Scrap Accounting • Canonical Batch Costing
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xl font-serif font-bold text-annapurna-ink">Floor Production & Batch Engine</h1>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-annapurna-cream text-annapurna-terracotta border border-vintage">
+              SUPERVISOR DESK
+            </span>
+          </div>
+          <p className="text-xs text-annapurna-ink-muted mt-0.5">
+            Recipe BOM Master • Material Staging • Batch Execution • Yield & Cost Variance Reporting
           </p>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <div className="flex rounded-md border border-vintage bg-white p-0.5">
+            <button
+              onClick={() => setActiveTab('RUNS')}
+              className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+                activeTab === 'RUNS' ? 'bg-annapurna-terracotta text-white shadow-xs' : 'text-annapurna-ink-muted hover:text-annapurna-ink'
+              }`}
+            >
+              Batch Runs ({runs?.length || 0})
+            </button>
+            <button
+              onClick={() => setActiveTab('BOM')}
+              className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+                activeTab === 'BOM' ? 'bg-annapurna-terracotta text-white shadow-xs' : 'text-annapurna-ink-muted hover:text-annapurna-ink'
+              }`}
+            >
+              Recipe BOM Master
+            </button>
+            <button
+              onClick={() => setActiveTab('NEW_RUN')}
+              className={`px-3 py-1 text-xs font-semibold rounded transition-colors ${
+                activeTab === 'NEW_RUN' ? 'bg-annapurna-terracotta text-white shadow-xs' : 'text-annapurna-ink-muted hover:text-annapurna-ink'
+              }`}
+            >
+              + Schedule Batch
+            </button>
+          </div>
         </div>
       </div>
 
-      {actionMessage && (
-        <div className="p-3 bg-annapurna-cream border border-annapurna-terracotta/30 text-annapurna-terracotta text-xs font-semibold rounded-lg flex justify-between items-center">
-          <span>{actionMessage}</span>
-          <button onClick={() => setActionMessage(null)} className="underline text-annapurna-ink">Dismiss</button>
+      {actionNotice && (
+        <div className={`p-3 rounded-lg text-xs font-medium border flex justify-between items-center ${
+          actionNotice.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          <span>{actionNotice.message}</span>
+          <button onClick={() => setActionNotice(null)} className="underline font-semibold ml-4">Dismiss</button>
         </div>
       )}
 
-      {/* Recipe BOM Standard Reference Card */}
-      <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-3">
-        <div className="flex justify-between items-center">
-          <div className="font-serif font-bold text-sm text-annapurna-ink flex items-center space-x-2">
-            <Layers className="w-4 h-4 text-annapurna-brass-dark" />
-            <span>Active Standard BOM: Murukku 200g (Recipe v1.0)</span>
-          </div>
-          <span className="text-xs px-2 py-0.5 rounded bg-annapurna-cream font-semibold text-annapurna-terracotta border border-annapurna-terracotta/20">
-            Standard Batch Output: 200 packets
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs pt-1">
-          <div className="p-2.5 rounded bg-annapurna-cream/40 border border-vintage">
-            <div className="text-annapurna-ink-muted font-medium">Rice Flour Grade A</div>
-            <div className="font-bold text-annapurna-ink mt-0.5">40.00 kg</div>
-          </div>
-          <div className="p-2.5 rounded bg-annapurna-cream/40 border border-vintage">
-            <div className="text-annapurna-ink-muted font-medium">Refined Cooking Oil</div>
-            <div className="font-bold text-annapurna-ink mt-0.5">10.00 L</div>
-          </div>
-          <div className="p-2.5 rounded bg-annapurna-cream/40 border border-vintage">
-            <div className="text-annapurna-ink-muted font-medium">Spice Master Mix</div>
-            <div className="font-bold text-annapurna-ink mt-0.5">1.20 kg</div>
-          </div>
-          <div className="p-2.5 rounded bg-annapurna-cream/40 border border-vintage">
-            <div className="text-annapurna-ink-muted font-medium">Printed Pouches</div>
-            <div className="font-bold text-annapurna-ink mt-0.5">200 pieces</div>
-          </div>
-          <div className="p-2.5 rounded bg-annapurna-cream/40 border border-vintage">
-            <div className="text-annapurna-ink-muted font-medium">Corrugated Cartons</div>
-            <div className="font-bold text-annapurna-ink mt-0.5">10 boxes (20pkts/box)</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Batch Execution Desk */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Step 1: Initialize Batch */}
-        <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-          <div className="font-serif font-bold text-base text-annapurna-ink flex items-center space-x-2">
-            <span className="w-5 h-5 rounded-full bg-annapurna-terracotta text-white flex items-center justify-center text-xs">1</span>
-            <span>Launch Production Batch</span>
+      {/* Tab 1: Runs Table */}
+      {activeTab === 'RUNS' && (
+        <div className="bg-white rounded-lg border border-vintage shadow-xs overflow-hidden">
+          <div className="px-4 py-3 border-b border-vintage bg-annapurna-cream-paper/50 flex justify-between items-center">
+            <span className="text-xs font-bold uppercase tracking-wider text-annapurna-ink">Production Schedule & Execution Log</span>
+            <span className="text-[10px] font-mono text-annapurna-ink-muted">Automated WAR Ingredient Allocation</span>
           </div>
 
-          <form onSubmit={handleCreateRun} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-annapurna-ink mb-1">Select Recipe BOM</label>
-              <select
-                disabled
-                className="w-full p-2.5 rounded-lg border border-vintage bg-annapurna-cream-paper text-xs font-medium"
-              >
-                <option>{bomData ? `${bomData.product_name} (${bomData.version})` : 'Murukku 200g (v1.0)'}</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-annapurna-ink mb-1">Planned Target Packets</label>
-              <input
-                type="text"
-                value={plannedQty}
-                onChange={(e) => setPlannedQty(e.target.value)}
-                className="w-full p-2.5 rounded-lg border border-vintage bg-white text-xs font-medium"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-annapurna-terracotta hover:bg-annapurna-terracotta-dark text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center space-x-1.5"
-            >
-              <Play className="w-4 h-4" />
-              <span>Create Draft Batch Run</span>
-            </button>
-          </form>
-        </div>
-
-        {/* Step 2: Post Actuals & Costing */}
-        <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-          <div className="font-serif font-bold text-base text-annapurna-ink flex items-center space-x-2">
-            <span className="w-5 h-5 rounded-full bg-annapurna-brass text-white flex items-center justify-center text-xs">2</span>
-            <span>Record Floor Actuals & Variance</span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="block font-semibold mb-1">Actual Good Packets</label>
-              <input
-                type="number"
-                value={goodOutput}
-                onChange={(e) => setGoodOutput(parseInt(e.target.value) || 0)}
-                className="w-full p-2 rounded border border-vintage bg-white text-xs font-bold text-annapurna-terracotta"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold mb-1">Damaged Pouches</label>
-              <input
-                type="number"
-                value={damagedPouches}
-                onChange={(e) => setDamagedPouches(parseInt(e.target.value) || 0)}
-                className="w-full p-2 rounded border border-vintage bg-white text-xs"
-              />
-            </div>
-          </div>
-
-          {/* Variances Live Display */}
-          <div className="p-3 rounded-lg bg-annapurna-cream border border-vintage grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span className="text-annapurna-ink-muted">Yield Variance:</span>
-              <div className={`font-bold text-sm ${parseFloat(yieldVariance) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {yieldVariance}%
-              </div>
-            </div>
-            <div>
-              <span className="text-annapurna-ink-muted">Packaging Scrap:</span>
-              <div className="font-bold text-sm text-annapurna-ink">
-                {scrapPercent}%
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-1 text-xs">
-            <div className="font-semibold text-annapurna-ink">Actual Ingredients Consumed:</div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <span className="text-[10px] text-annapurna-ink-muted">Flour (kg)</span>
-                <input
-                  type="text"
-                  value={flourQty}
-                  onChange={(e) => setFlourQty(e.target.value)}
-                  className="w-full p-1.5 border border-vintage rounded text-xs"
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-annapurna-ink-muted">Oil (L)</span>
-                <input
-                  type="text"
-                  value={oilQty}
-                  onChange={(e) => setOilQty(e.target.value)}
-                  className="w-full p-1.5 border border-vintage rounded text-xs font-bold text-amber-700"
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-annapurna-ink-muted">Spice (kg)</span>
-                <input
-                  type="text"
-                  value={spiceQty}
-                  onChange={(e) => setSpiceQty(e.target.value)}
-                  className="w-full p-1.5 border border-vintage rounded text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Ready to Post Buttons */}
-          <div className="pt-2">
-            {runs?.filter((r: any) => r.status === 'DRAFT').map((draft: any) => (
-              <button
-                key={draft.id}
-                onClick={() => handlePostRun(draft.id)}
-                className="w-full py-2.5 bg-annapurna-leaf hover:opacity-95 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center space-x-1.5"
-              >
-                <CheckCircle className="w-4 h-4" />
-                <span>Post Batch {draft.batch_number} (Atomic Deduct & FG Credit)</span>
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-annapurna-cream-paper border-b border-vintage text-[11px] font-semibold text-annapurna-ink-muted">
+                <tr>
+                  <th className="px-4 py-2.5">Batch #</th>
+                  <th className="px-3 py-2.5">Recipe / Product</th>
+                  <th className="px-3 py-2.5 text-right">Planned (pkts)</th>
+                  <th className="px-3 py-2.5 text-right">Good Output</th>
+                  <th className="px-3 py-2.5 text-right">Yield Variance</th>
+                  <th className="px-3 py-2.5 text-right">Cost / Pkt</th>
+                  <th className="px-3 py-2.5 text-center">Status</th>
+                  <th className="px-4 py-2.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-vintage">
+                {runs && runs.length > 0 ? (
+                  runs.map((r: any) => {
+                    const yieldNum = parseFloat(r.yield_variance_percent || '0');
+                    const isYieldAlert = yieldNum < -2.0 || yieldNum > 2.0;
+                    return (
+                      <tr key={r.id} className="hover:bg-annapurna-cream/40 transition-colors">
+                        <td className="px-4 py-2.5 font-mono font-medium text-annapurna-ink">
+                          {r.batch_number}
+                        </td>
+                        <td className="px-3 py-2.5 font-medium">{r.product_name || 'Murukku 200g'}</td>
+                        <td className="px-3 py-2.5 text-right font-mono">{r.planned_quantity}</td>
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-annapurna-ink">
+                          {r.actual_good_output !== null ? r.actual_good_output : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono">
+                          {r.yield_variance_percent !== null ? (
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-bold ${
+                              isYieldAlert ? 'bg-red-50 text-red-700 border border-red-200' : 'text-emerald-700'
+                            }`}>
+                              {yieldNum > 0 ? `+${yieldNum}%` : `${yieldNum}%`}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono font-medium">
+                          {r.cost_per_packet ? `₹${parseFloat(r.cost_per_packet).toFixed(2)}` : '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                            r.status === 'POSTED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                            'bg-amber-100 text-amber-800 border border-amber-300'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          {r.status === 'DRAFT' ? (
+                            <button
+                              onClick={() => setActiveRunModal(r)}
+                              className="px-2.5 py-1 text-xs font-semibold rounded bg-annapurna-terracotta hover:bg-annapurna-terracotta-dark text-white shadow-xs"
+                            >
+                              Post Floor Run
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-mono text-annapurna-ink-muted">Completed</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-annapurna-ink-muted">
+                      No production runs in ledger. Click "+ Schedule Batch" to launch a run.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Historical Batches Table */}
-      <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-        <h2 className="font-serif font-bold text-base text-annapurna-ink">Recent Production Batches</h2>
-        <div className="overflow-x-auto">
+      {/* Tab 2: Recipe BOM Master */}
+      {activeTab === 'BOM' && bomData && (
+        <div className="bg-white rounded-lg border border-vintage shadow-xs p-6 space-y-4">
+          <div className="border-b border-vintage pb-3">
+            <h3 className="text-base font-serif font-bold text-annapurna-ink">{bomData.name}</h3>
+            <p className="text-xs text-annapurna-ink-muted">
+              Base Batch Standard: {bomData.base_quantity} packets ({bomData.batch_size_kg} kg flour dough)
+            </p>
+          </div>
+
           <table className="w-full text-left text-xs">
-            <thead className="bg-annapurna-cream border-y border-vintage text-annapurna-ink-muted">
+            <thead className="bg-annapurna-cream-paper border-b border-vintage text-[11px] font-semibold text-annapurna-ink-muted">
               <tr>
-                <th className="py-2.5 px-3">Batch Number</th>
-                <th className="py-2.5 px-3">Product</th>
-                <th className="py-2.5 px-3">Standard / Actual</th>
-                <th className="py-2.5 px-3">Yield Variance</th>
-                <th className="py-2.5 px-3">Damaged Pouches</th>
-                <th className="py-2.5 px-3">Total Cost</th>
-                <th className="py-2.5 px-3">Unit Cost</th>
-                <th className="py-2.5 px-3">Status</th>
+                <th className="px-3 py-2">Ingredient Code</th>
+                <th className="px-3 py-2">Material Name</th>
+                <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2 text-right">Standard Qty</th>
+                <th className="px-3 py-2">UOM</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-vintage">
-              {runs?.map((r: any) => (
-                <tr key={r.id} className="hover:bg-annapurna-cream/50 transition-colors">
-                  <td className="py-2.5 px-3 font-semibold text-annapurna-terracotta">{r.batch_number}</td>
-                  <td className="py-2.5 px-3 text-annapurna-ink">{r.product?.name || 'Murukku 200g'}</td>
-                  <td className="py-2.5 px-3 font-medium">
-                    {r.planned_quantity} / <strong>{r.actual_good_output}</strong> pkts
-                  </td>
-                  <td className={`py-2.5 px-3 font-bold ${parseFloat(r.yield_variance_percent) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {r.yield_variance_percent}%
-                  </td>
-                  <td className="py-2.5 px-3">{r.damaged_pouches} units</td>
-                  <td className="py-2.5 px-3 font-medium">₹{parseFloat(r.total_batch_cost || 0).toFixed(2)}</td>
-                  <td className="py-2.5 px-3 font-bold text-annapurna-terracotta">₹{parseFloat(r.cost_per_packet || 0).toFixed(2)}</td>
-                  <td className="py-2.5 px-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800">
-                      {r.status}
-                    </span>
-                  </td>
+              {bomData.lines?.map((line: any) => (
+                <tr key={line.id}>
+                  <td className="px-3 py-2 font-mono text-annapurna-ink">{line.material_code}</td>
+                  <td className="px-3 py-2 font-semibold text-annapurna-ink">{line.material_name}</td>
+                  <td className="px-3 py-2 font-mono text-[10px] text-annapurna-ink-muted">{line.line_type}</td>
+                  <td className="px-3 py-2 text-right font-mono font-bold text-annapurna-ink">{line.quantity}</td>
+                  <td className="px-3 py-2 font-mono text-annapurna-ink-muted">{line.uom}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
+
+      {/* Tab 3: Schedule Batch Form */}
+      {activeTab === 'NEW_RUN' && (
+        <div className="max-w-lg mx-auto bg-white rounded-lg border border-vintage shadow-xs p-6 space-y-4">
+          <div className="border-b border-vintage pb-3">
+            <h3 className="text-base font-serif font-bold text-annapurna-ink">Schedule New Production Run</h3>
+            <p className="text-xs text-annapurna-ink-muted">Issues draft batch number and reserves BOM materials</p>
+          </div>
+
+          <form onSubmit={handleCreateRun} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-semibold text-annapurna-ink mb-1">Standard Product BOM</label>
+              <input
+                type="text"
+                disabled
+                value={bomData ? `${bomData.name} (Base 200 pkts)` : 'Murukku 200g BOM'}
+                className="w-full p-2 bg-annapurna-cream-paper border border-vintage rounded text-annapurna-ink"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-annapurna-ink mb-1">Planned Packets</label>
+              <input
+                type="number"
+                value={plannedQty}
+                onChange={(e) => setPlannedQty(e.target.value)}
+                required
+                className="w-full p-2 border border-vintage rounded font-mono focus:outline-none focus:border-annapurna-terracotta"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-2.5 bg-annapurna-terracotta hover:bg-annapurna-terracotta-dark text-white font-semibold rounded shadow-xs transition-colors"
+            >
+              {isSubmitting ? 'Scheduling...' : 'Launch Batch Run'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Post Batch Run Modal */}
+      {activeRunModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl border border-vintage shadow-2xl w-full max-w-xl overflow-hidden p-6 space-y-4">
+            <div className="flex justify-between items-start border-b border-vintage pb-3">
+              <div>
+                <span className="text-[10px] font-mono uppercase font-bold text-annapurna-terracotta">POST ACTUAL FLOOR CONSUMPTION</span>
+                <h3 className="text-base font-serif font-bold text-annapurna-ink">Batch {activeRunModal.batch_number}</h3>
+              </div>
+              <button onClick={() => setActiveRunModal(null)} className="text-xs text-annapurna-ink-muted hover:text-annapurna-ink">✕</button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Good Output (Packets)</label>
+                <input
+                  type="number"
+                  value={goodOutput}
+                  onChange={(e) => setGoodOutput(parseInt(e.target.value) || 0)}
+                  className="w-full p-2 border border-vintage rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Damaged Pouches (Scrap)</label>
+                <input
+                  type="number"
+                  value={damagedPouches}
+                  onChange={(e) => setDamagedPouches(parseInt(e.target.value) || 0)}
+                  className="w-full p-2 border border-vintage rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Actual Flour Used (kg)</label>
+                <input
+                  type="text"
+                  value={flourQty}
+                  onChange={(e) => setFlourQty(e.target.value)}
+                  className="w-full p-2 border border-vintage rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Actual Oil Used (litres)</label>
+                <input
+                  type="text"
+                  value={oilQty}
+                  onChange={(e) => setOilQty(e.target.value)}
+                  className="w-full p-2 border border-vintage rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Labour Cost (₹)</label>
+                <input
+                  type="text"
+                  value={labourCost}
+                  onChange={(e) => setLabourCost(e.target.value)}
+                  className="w-full p-2 border border-vintage rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Gas / Power Cost (₹)</label>
+                <input
+                  type="text"
+                  value={gasPowerCost}
+                  onChange={(e) => setGasPowerCost(e.target.value)}
+                  className="w-full p-2 border border-vintage rounded font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-vintage">
+              <button
+                onClick={() => setActiveRunModal(null)}
+                className="px-3 py-1.5 text-xs rounded border border-vintage hover:bg-annapurna-cream text-annapurna-ink"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handlePostRun(activeRunModal.id)}
+                disabled={isSubmitting}
+                className="px-4 py-1.5 text-xs font-semibold rounded bg-annapurna-terracotta hover:bg-annapurna-terracotta-dark text-white"
+              >
+                {isSubmitting ? 'Calculating & Posting...' : 'Commit Batch to Ledger'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

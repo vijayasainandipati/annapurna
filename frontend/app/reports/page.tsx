@@ -9,19 +9,22 @@ import {
   Calendar, 
   IndianRupee, 
   CreditCard,
-  CheckCircle2
+  CheckCircle2,
+  Receipt,
+  Plus
 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function ReportsHub() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'SALES' | 'GST' | 'RECEIVABLES' | 'COSTING'>('SALES');
+  const [activeTab, setActiveTab] = useState<'RECEIVABLES' | 'GST' | 'SALES' | 'PAYMENTS'>('RECEIVABLES');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [payCustId, setPayCustId] = useState('');
   const [payInvoiceId, setPayInvoiceId] = useState('');
   const [payAmount, setPayAmount] = useState('4000.00');
   const [payRef, setPayRef] = useState('NEFT-TN-98124');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionNotice, setActionNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const { data: salesRegister } = useQuery({
     queryKey: ['reports', 'sales'],
@@ -38,13 +41,14 @@ export default function ReportsHub() {
     queryFn: () => api.finance.getReceivables(),
   });
 
-  const { data: batchCosting } = useQuery({
-    queryKey: ['reports', 'costing'],
-    queryFn: () => api.reports.getBatchCosting(),
+  const { data: customers } = useQuery({
+    queryKey: ['masters', 'customers'],
+    queryFn: () => api.masters.getCustomers(),
   });
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!payCustId) return;
     setIsSubmitting(true);
     try {
       const res = await api.finance.recordPayment({
@@ -57,9 +61,12 @@ export default function ReportsHub() {
       setShowPaymentModal(false);
       queryClient.invalidateQueries({ queryKey: ['finance'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
-      alert(`Payment ${res.payment_number} recorded! Remaining balance: ₹${res.invoice_remaining_balance}`);
+      setActionNotice({ 
+        type: 'success', 
+        message: `Payment ${res.payment_number} of ₹${parseFloat(payAmount).toLocaleString('en-IN')} allocated! Remaining invoice balance: ₹${res.invoice_remaining_balance}` 
+      });
     } catch (err: any) {
-      alert(`Payment Error: ${err.message}`);
+      setActionNotice({ type: 'error', message: `Payment Allocation Error: ${err.message}` });
     } finally {
       setIsSubmitting(false);
     }
@@ -67,53 +74,68 @@ export default function ReportsHub() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="border-b border-vintage pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Enterprise Header */}
+      <div className="border-b border-vintage pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-serif font-bold text-annapurna-ink flex items-center space-x-2">
-            <FileText className="w-6 h-6 text-annapurna-terracotta" />
-            <span>GST & Audit Reports Desk</span>
-          </h1>
-          <p className="text-xs text-annapurna-ink-muted mt-1">
-            GSTR-1 Outward Summary • Sales Register • Aged Receivables • openpyxl Excel Exports
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xl font-serif font-bold text-annapurna-ink">Finance, GST & Audit Desk</h1>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-annapurna-cream text-annapurna-terracotta border border-vintage">
+              ACCOUNTANT / AUDITOR
+            </span>
+          </div>
+          <p className="text-xs text-annapurna-ink-muted mt-0.5">
+            Aged Debtors • GSTR-1 Outward Supply Summary • FIFO Payment Allocation • openpyxl Excel Exports
           </p>
         </div>
 
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            className="px-3 py-1.5 bg-annapurna-terracotta hover:bg-annapurna-terracotta-dark text-white rounded-md text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Record Payment</span>
+          </button>
           <a
             href="/api/v1/reports/sales-register?format=excel"
             download
-            className="px-3 py-1.5 rounded-lg border border-vintage bg-white hover:bg-annapurna-cream text-xs font-semibold text-annapurna-ink flex items-center space-x-1"
+            className="px-2.5 py-1.5 rounded-md border border-vintage bg-white hover:bg-annapurna-cream text-xs font-semibold text-annapurna-ink flex items-center space-x-1.5"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-green-700" />
-            <span>Export Sales Register (.xlsx)</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Sales Register (.xlsx)</span>
           </a>
           <a
             href="/api/v1/reports/gst-summary?format=excel"
             download
-            className="px-3 py-1.5 rounded-lg border border-vintage bg-white hover:bg-annapurna-cream text-xs font-semibold text-annapurna-ink flex items-center space-x-1"
+            className="px-2.5 py-1.5 rounded-md border border-vintage bg-white hover:bg-annapurna-cream text-xs font-semibold text-annapurna-ink flex items-center space-x-1.5"
           >
             <Download className="w-3.5 h-3.5 text-purple-700" />
-            <span>GSTR-1 Excel (.xlsx)</span>
+            <span>GSTR-1 (.xlsx)</span>
           </a>
         </div>
       </div>
 
+      {actionNotice && (
+        <div className={`p-3 rounded-lg text-xs font-medium border flex justify-between items-center ${
+          actionNotice.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+        }`}>
+          <span>{actionNotice.message}</span>
+          <button onClick={() => setActionNotice(null)} className="underline font-semibold ml-4">Dismiss</button>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div className="flex space-x-2 border-b border-vintage pb-2">
+      <div className="flex rounded-md border border-vintage bg-white p-0.5 w-fit">
         {[
-          { key: 'SALES', label: 'Sales Register' },
+          { key: 'RECEIVABLES', label: 'Aged Receivables' },
           { key: 'GST', label: 'GSTR-1 Outward Summary' },
-          { key: 'RECEIVABLES', label: 'Aged Receivables & Collections' },
-          { key: 'COSTING', label: 'Batch Costing Analysis' },
-        ].map((t) => (
+          { key: 'SALES', label: 'Sales Invoices Register' },
+        ].map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key as any)}
-            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-              activeTab === t.key
-                ? 'bg-annapurna-terracotta text-white shadow-sm'
-                : 'text-annapurna-ink-muted hover:bg-annapurna-cream'
+            className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
+              activeTab === t.key ? 'bg-annapurna-terracotta text-white shadow-xs' : 'text-annapurna-ink-muted hover:text-annapurna-ink'
             }`}
           >
             {t.label}
@@ -121,165 +143,150 @@ export default function ReportsHub() {
         ))}
       </div>
 
-      {/* Tab 1: Sales Register */}
-      {activeTab === 'SALES' && (
-        <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-          <div className="flex justify-between items-center text-xs">
-            <div className="font-serif font-bold text-base text-annapurna-ink">Invoiced Sales Ledger</div>
-            <div className="space-x-2">
-              <a href="/api/v1/reports/sales-register?format=csv" className="text-annapurna-terracotta underline font-semibold">Download CSV</a>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-annapurna-cream border-y border-vintage text-annapurna-ink-muted">
-                <tr>
-                  <th className="py-2 px-3">Invoice #</th>
-                  <th className="py-2 px-3">Date</th>
-                  <th className="py-2 px-3">Customer</th>
-                  <th className="py-2 px-3">State</th>
-                  <th className="py-2 px-3">Taxable</th>
-                  <th className="py-2 px-3">CGST</th>
-                  <th className="py-2 px-3">SGST</th>
-                  <th className="py-2 px-3">IGST</th>
-                  <th className="py-2 px-3">Total (₹)</th>
-                  <th className="py-2 px-3">Paid (₹)</th>
-                  <th className="py-2 px-3">Balance (₹)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-vintage">
-                {salesRegister?.invoices?.map((inv: any) => (
-                  <tr key={inv.invoice_number} className="hover:bg-annapurna-cream/50">
-                    <td className="py-2.5 px-3 font-semibold text-annapurna-terracotta">{inv.invoice_number}</td>
-                    <td className="py-2.5 px-3 text-annapurna-ink-faint">{new Date(inv.invoice_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-2.5 px-3 font-medium text-annapurna-ink">{inv.customer_name}</td>
-                    <td className="py-2.5 px-3">{inv.customer_state}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(inv.taxable_amount).toFixed(2)}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(inv.cgst_amount).toFixed(2)}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(inv.sgst_amount).toFixed(2)}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(inv.igst_amount).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 font-bold text-annapurna-ink">₹{parseFloat(inv.total_amount).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-green-700 font-semibold">₹{parseFloat(inv.paid_amount).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 font-bold text-amber-800">₹{parseFloat(inv.balance_amount).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: GSTR-1 Outward Summary */}
-      {activeTab === 'GST' && (
-        <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-          <div className="font-serif font-bold text-base text-annapurna-ink">GSTR-1 Outward Supply Aggregation</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            {gstSummary && [
-              { title: 'B2B Intrastate (Tamil Nadu)', data: gstSummary.b2b_intrastate },
-              { title: 'B2B Interstate (Other States)', data: gstSummary.b2b_interstate },
-              { title: 'B2C Intrastate (Tamil Nadu)', data: gstSummary.b2c_intrastate },
-              { title: 'B2C Interstate (Other States)', data: gstSummary.b2c_interstate },
-            ].map((card) => (
-              <div key={card.title} className="p-4 rounded-lg bg-annapurna-cream/50 border border-vintage space-y-2">
-                <div className="font-bold text-annapurna-ink">{card.title}</div>
-                <div className="grid grid-cols-2 gap-1 text-[11px] text-annapurna-ink-muted">
-                  <div>Taxable Value: <strong className="text-annapurna-ink">₹{parseFloat(card.data.taxable_value).toFixed(2)}</strong></div>
-                  <div>Total Tax: <strong className="text-annapurna-ink">₹{parseFloat(card.data.total_tax).toFixed(2)}</strong></div>
-                  <div>CGST: ₹{parseFloat(card.data.cgst_amount).toFixed(2)}</div>
-                  <div>SGST: ₹{parseFloat(card.data.sgst_amount).toFixed(2)}</div>
-                  <div>IGST: ₹{parseFloat(card.data.igst_amount).toFixed(2)}</div>
-                  <div className="font-bold text-annapurna-terracotta">Total: ₹{parseFloat(card.data.total_invoice_value).toFixed(2)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: Aged Receivables */}
+      {/* Tab 1: Aged Receivables Table */}
       {activeTab === 'RECEIVABLES' && (
-        <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-          <div className="flex justify-between items-center">
+        <div className="bg-white rounded-lg border border-vintage shadow-xs overflow-hidden">
+          <div className="px-4 py-3 border-b border-vintage bg-annapurna-cream-paper/50 flex justify-between items-center">
             <div>
-              <div className="font-serif font-bold text-base text-annapurna-ink">Customer Outstanding & Aging Buckets</div>
-              <div className="text-xs text-annapurna-ink-muted">Standard 0-30, 31-60, 61-90, and &gt;90 days aging</div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-annapurna-ink">Customer Outstanding Ledger</h2>
+              <p className="text-[10px] text-annapurna-ink-muted">Aged aging buckets (0-30, 31-60, 61-90, 90+ days) and payment history</p>
             </div>
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="px-3.5 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center space-x-1"
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Record Customer Payment</span>
-            </button>
+            <div className="font-mono text-xs font-bold text-annapurna-terracotta">
+              Total Outstanding: ₹{parseFloat(receivables?.total_receivables || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-annapurna-cream border-y border-vintage text-annapurna-ink-muted">
+              <thead className="bg-annapurna-cream-paper border-b border-vintage text-[11px] font-semibold text-annapurna-ink-muted">
                 <tr>
-                  <th className="py-2.5 px-3">Customer Business Name</th>
-                  <th className="py-2.5 px-3">State</th>
-                  <th className="py-2.5 px-3">Total Due (₹)</th>
-                  <th className="py-2.5 px-3">0-30 Days</th>
-                  <th className="py-2.5 px-3">31-60 Days</th>
-                  <th className="py-2.5 px-3">61-90 Days</th>
-                  <th className="py-2.5 px-3">90+ Days</th>
+                  <th className="px-4 py-2.5">Distributor Name</th>
+                  <th className="px-3 py-2.5">GSTIN</th>
+                  <th className="px-3 py-2.5">State</th>
+                  <th className="px-3 py-2.5 text-right">Credit Limit</th>
+                  <th className="px-3 py-2.5 text-right">Current Balance</th>
+                  <th className="px-4 py-2.5 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-vintage">
-                {receivables?.customers?.map((cust: any) => (
-                  <tr key={cust.customer_id} className="hover:bg-annapurna-cream/50">
-                    <td className="py-2.5 px-3 font-semibold text-annapurna-ink">{cust.business_name}</td>
-                    <td className="py-2.5 px-3 text-annapurna-ink-muted">{cust.state}</td>
-                    <td className="py-2.5 px-3 font-bold text-annapurna-terracotta">
-                      ₹{parseFloat(cust.current_balance).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-annapurna-ink">₹{parseFloat(cust.bucket_0_30).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-annapurna-ink-faint">₹{parseFloat(cust.bucket_31_60).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-annapurna-ink-faint">₹{parseFloat(cust.bucket_61_90).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-annapurna-ink-faint">₹{parseFloat(cust.bucket_90_plus).toFixed(2)}</td>
+                {receivables?.customers && receivables.customers.length > 0 ? (
+                  receivables.customers.map((c: any) => (
+                    <tr key={c.customer_id} className="hover:bg-annapurna-cream/40 transition-colors">
+                      <td className="px-4 py-2.5 font-semibold text-annapurna-ink">{c.customer_name}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px] text-annapurna-ink-muted">{c.gstin}</td>
+                      <td className="px-3 py-2.5 font-mono text-[11px]">{c.city}, {c.state}</td>
+                      <td className="px-3 py-2.5 text-right font-mono">₹{parseFloat(c.credit_limit || '0').toLocaleString('en-IN')}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-annapurna-terracotta">
+                        ₹{parseFloat(c.current_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <button
+                          onClick={() => {
+                            setPayCustId(c.customer_id);
+                            setShowPaymentModal(true);
+                          }}
+                          className="px-2 py-1 text-[11px] font-semibold rounded bg-white hover:bg-annapurna-cream border border-vintage text-annapurna-ink"
+                        >
+                          Collect Payment
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-annapurna-ink-muted">No pending customer receivables.</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Tab 4: Batch Costing */}
-      {activeTab === 'COSTING' && (
-        <div className="bg-white rounded-xl border border-vintage p-5 shadow-warm space-y-4">
-          <div className="font-serif font-bold text-base text-annapurna-ink">Batch Manufacturing Cost Breakdown</div>
+      {/* Tab 2: GSTR-1 Summary */}
+      {activeTab === 'GST' && (
+        <div className="bg-white rounded-lg border border-vintage shadow-xs p-6 space-y-4">
+          <div className="border-b border-vintage pb-3 flex justify-between items-center">
+            <div>
+              <h3 className="text-base font-serif font-bold text-annapurna-ink">GSTR-1 Outward Supplies Summary</h3>
+              <p className="text-xs text-annapurna-ink-muted">B2B Sales split by Intra-state (CGST+SGST) and Inter-state (IGST)</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded bg-annapurna-cream-paper border border-vintage space-y-1">
+              <span className="text-[10px] uppercase font-bold text-annapurna-ink-muted">Total Taxable Value</span>
+              <div className="text-lg font-mono font-bold text-annapurna-ink">
+                ₹{parseFloat(gstSummary?.total_taxable || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="p-3 rounded bg-annapurna-cream-paper border border-vintage space-y-1">
+              <span className="text-[10px] uppercase font-bold text-annapurna-ink-muted">CGST (2.5%)</span>
+              <div className="text-lg font-mono font-bold text-annapurna-ink">
+                ₹{parseFloat(gstSummary?.total_cgst || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="p-3 rounded bg-annapurna-cream-paper border border-vintage space-y-1">
+              <span className="text-[10px] uppercase font-bold text-annapurna-ink-muted">SGST (2.5%)</span>
+              <div className="text-lg font-mono font-bold text-annapurna-ink">
+                ₹{parseFloat(gstSummary?.total_sgst || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="p-3 rounded bg-annapurna-cream-paper border border-vintage space-y-1">
+              <span className="text-[10px] uppercase font-bold text-annapurna-ink-muted">IGST (5.0%)</span>
+              <div className="text-lg font-mono font-bold text-annapurna-ink">
+                ₹{parseFloat(gstSummary?.total_igst || '0').toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Sales Register Table */}
+      {activeTab === 'SALES' && (
+        <div className="bg-white rounded-lg border border-vintage shadow-xs overflow-hidden">
+          <div className="px-4 py-3 border-b border-vintage bg-annapurna-cream-paper/50 flex justify-between items-center">
+            <span className="text-xs font-bold uppercase tracking-wider text-annapurna-ink">Sales Register & Invoices</span>
+            <span className="text-[10px] font-mono text-annapurna-ink-muted">{salesRegister?.invoices?.length || 0} Invoices</span>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-annapurna-cream border-y border-vintage text-annapurna-ink-muted">
+              <thead className="bg-annapurna-cream-paper border-b border-vintage text-[11px] font-semibold text-annapurna-ink-muted">
                 <tr>
-                  <th className="py-2.5 px-3">Batch Number</th>
-                  <th className="py-2.5 px-3">Product</th>
-                  <th className="py-2.5 px-3">Good Units</th>
-                  <th className="py-2.5 px-3">Raw Materials (₹)</th>
-                  <th className="py-2.5 px-3">Packaging (₹)</th>
-                  <th className="py-2.5 px-3">Labour (₹)</th>
-                  <th className="py-2.5 px-3">Power/Overhead (₹)</th>
-                  <th className="py-2.5 px-3">Total Cost (₹)</th>
-                  <th className="py-2.5 px-3">Unit Cost / Pkt (₹)</th>
+                  <th className="px-4 py-2.5">Invoice #</th>
+                  <th className="px-3 py-2.5">Date</th>
+                  <th className="px-3 py-2.5">Distributor</th>
+                  <th className="px-3 py-2.5 text-right">Taxable</th>
+                  <th className="px-3 py-2.5 text-right">Total GST</th>
+                  <th className="px-3 py-2.5 text-right">Net Amount</th>
+                  <th className="px-3 py-2.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-vintage">
-                {batchCosting?.batches?.map((b: any) => (
-                  <tr key={b.batch_number} className="hover:bg-annapurna-cream/50">
-                    <td className="py-2.5 px-3 font-semibold text-annapurna-terracotta">{b.batch_number}</td>
-                    <td className="py-2.5 px-3 text-annapurna-ink">{b.product_name}</td>
-                    <td className="py-2.5 px-3 font-bold">{b.good_units} pkts</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(b.raw_material_cost).toFixed(2)}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(b.packaging_cost).toFixed(2)}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(b.labour_cost).toFixed(2)}</td>
-                    <td className="py-2.5 px-3">₹{parseFloat(b.overhead_cost).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 font-bold text-annapurna-ink">₹{parseFloat(b.total_cost).toFixed(2)}</td>
-                    <td className="py-2.5 px-3 font-bold text-annapurna-terracotta">₹{parseFloat(b.cost_per_unit).toFixed(2)}</td>
+                {salesRegister?.invoices && salesRegister.invoices.length > 0 ? (
+                  salesRegister.invoices.map((inv: any) => (
+                    <tr key={inv.invoice_number} className="hover:bg-annapurna-cream/40 transition-colors">
+                      <td className="px-4 py-2.5 font-mono font-medium text-annapurna-ink">{inv.invoice_number}</td>
+                      <td className="px-3 py-2.5 font-mono text-annapurna-ink-muted">{inv.invoice_date}</td>
+                      <td className="px-3 py-2.5 font-semibold text-annapurna-ink">{inv.customer_name}</td>
+                      <td className="px-3 py-2.5 text-right font-mono">₹{parseFloat(inv.taxable_amount).toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono">₹{parseFloat(inv.tax_amount).toFixed(2)}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-annapurna-ink">
+                        ₹{parseFloat(inv.total_amount).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-50 text-emerald-800">
+                          {inv.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-annapurna-ink-muted">No invoices generated yet.</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -288,60 +295,71 @@ export default function ReportsHub() {
 
       {/* Record Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 border border-vintage shadow-2xl space-y-4">
-            <h3 className="font-serif font-bold text-lg text-annapurna-ink">Record Customer Payment</h3>
-            <form onSubmit={handleRecordPayment} className="space-y-3 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-xl border border-vintage shadow-2xl w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="flex justify-between items-start border-b border-vintage pb-3">
               <div>
-                <label className="block font-semibold mb-1">Customer</label>
+                <span className="text-[10px] font-mono uppercase font-bold text-annapurna-terracotta">PAYMENT RECEIPT</span>
+                <h3 className="text-base font-serif font-bold text-annapurna-ink">Allocate Customer Remittance</h3>
+              </div>
+              <button onClick={() => setShowPaymentModal(false)} className="text-xs text-annapurna-ink-muted hover:text-annapurna-ink">✕</button>
+            </div>
+
+            <form onSubmit={handleRecordPayment} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-annapurna-ink mb-1">Customer / Distributor</label>
                 <select
                   value={payCustId}
                   onChange={(e) => setPayCustId(e.target.value)}
                   required
-                  className="w-full p-2.5 rounded-lg border border-vintage bg-white text-xs"
+                  className="w-full p-2 border border-vintage rounded bg-white text-annapurna-ink"
                 >
-                  <option value="">-- Choose Customer --</option>
-                  {receivables?.customers?.map((c: any) => (
-                    <option key={c.customer_id} value={c.customer_id}>{c.business_name} (Balance: ₹{parseFloat(c.current_balance).toFixed(2)})</option>
+                  <option value="">-- Select Customer --</option>
+                  {customers?.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.city})
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block font-semibold mb-1">Payment Amount (₹)</label>
-                <input
-                  type="text"
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(e.target.value)}
-                  required
-                  className="w-full p-2 rounded-lg border border-vintage font-bold"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-annapurna-ink mb-1">Remittance Amount (₹)</label>
+                  <input
+                    type="text"
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    required
+                    className="w-full p-2 border border-vintage rounded font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-annapurna-ink mb-1">Bank Reference / UTR</label>
+                  <input
+                    type="text"
+                    value={payRef}
+                    onChange={(e) => setPayRef(e.target.value)}
+                    required
+                    className="w-full p-2 border border-vintage rounded font-mono"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-semibold mb-1">Bank Reference / NEFT UTR</label>
-                <input
-                  type="text"
-                  value={payRef}
-                  onChange={(e) => setPayRef(e.target.value)}
-                  className="w-full p-2 rounded-lg border border-vintage"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="flex justify-end space-x-2 pt-2 border-t border-vintage">
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-3 py-2 rounded-lg border border-vintage hover:bg-annapurna-cream"
+                  className="px-3 py-1.5 text-xs rounded border border-vintage hover:bg-annapurna-cream text-annapurna-ink"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-green-700 text-white rounded-lg font-semibold hover:bg-green-800"
+                  className="px-4 py-1.5 text-xs font-semibold rounded bg-annapurna-terracotta hover:bg-annapurna-terracotta-dark text-white"
                 >
-                  {isSubmitting ? 'Posting...' : 'Allocate Payment'}
+                  {isSubmitting ? 'Allocating...' : 'Commit Payment to Ledger'}
                 </button>
               </div>
             </form>
