@@ -53,6 +53,7 @@ async def list_sales_orders(
         .options(
             selectinload(SalesOrder.customer),
             selectinload(SalesOrder.salesman),
+            selectinload(SalesOrder.invoices),
             selectinload(SalesOrder.items).selectinload(SalesOrderItem.product)
         )
         .order_by(SalesOrder.created_at.desc())
@@ -81,6 +82,7 @@ async def get_order_details(
         .options(
             selectinload(SalesOrder.customer),
             selectinload(SalesOrder.salesman),
+            selectinload(SalesOrder.invoices),
             selectinload(SalesOrder.items).selectinload(SalesOrderItem.product)
         )
     )
@@ -126,6 +128,63 @@ async def generate_invoice(
 ):
     """Generates an official GST Tax Invoice with financial-year sequential numbering."""
     return await SalesService.generate_invoice_for_order(db, order_id, current_user.id)
+
+@router.get("/invoices", response_model=List[InvoiceResponse])
+async def list_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles([RoleEnum.ADMIN.value, RoleEnum.OWNER.value, RoleEnum.ACCOUNTANT.value]))
+):
+    """Lists all GST Tax Invoices with line-item details and payment status."""
+    stmt = (
+        select(Invoice)
+        .options(
+            selectinload(Invoice.customer),
+            selectinload(Invoice.order).selectinload(SalesOrder.items).selectinload(SalesOrderItem.product)
+        )
+        .order_by(Invoice.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    invoices = res.scalars().all()
+    results: List[InvoiceResponse] = []
+    for inv in invoices:
+        item_details = []
+        for it in inv.order.items:
+            prod = it.product
+            cgst_i, sgst_i, igst_i = InvoiceService.calculate_gst_breakup(
+                it.taxable_amount, prod.gst_rate_percent, inv.customer_state
+            )
+            item_details.append({
+                "product_name": prod.name,
+                "sku": prod.sku,
+                "hsn_code": prod.hsn_code,
+                "quantity": it.quantity,
+                "unit_price": it.unit_price,
+                "taxable_amount": it.taxable_amount,
+                "gst_rate": prod.gst_rate_percent,
+                "tax_amount": cgst_i + sgst_i + igst_i,
+                "total_amount": it.line_total
+            })
+        results.append(InvoiceResponse(
+            id=inv.id,
+            invoice_number=inv.invoice_number,
+            order_id=inv.order_id,
+            customer_id=inv.customer_id,
+            customer_name=inv.customer.business_name,
+            customer_state=inv.customer_state,
+            customer_gstin=inv.customer_gstin,
+            taxable_amount=inv.taxable_amount,
+            cgst_amount=inv.cgst_amount,
+            sgst_amount=inv.sgst_amount,
+            igst_amount=inv.igst_amount,
+            total_amount=inv.total_amount,
+            paid_amount=inv.paid_amount,
+            outstanding_amount=inv.total_amount - inv.paid_amount,
+            status=inv.status,
+            is_interstate=(inv.customer_state.strip().lower() != "tamil nadu"),
+            created_at=inv.created_at,
+            items=item_details
+        ))
+    return results
 
 @router.get("/invoices/{invoice_id}/pdf")
 async def download_invoice_pdf(

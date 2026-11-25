@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { getSocket } from '@/lib/realtime';
+import { api } from '@/lib/api';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -89,17 +90,39 @@ export function AppShell({ children }: AppShellProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDevDrawer, setShowDevDrawer] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; time: string; type: string }>>([
-    { id: '1', title: 'Batch MRK-2026-001 completed with -6.00% yield variance', time: '10m ago', type: 'alert' },
-    { id: '2', title: 'Sales Order SO-2026-0001 pending dispatch check', time: '25m ago', type: 'order' }
-  ]);
+  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; time: string; type: string }>>([]);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
+  // Seed initial notification feed from committed PostgreSQL outbox (Admin/Owner only)
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (user.role === 'ADMIN' || user.role === 'OWNER') {
+      api.realtime.getEvents()
+        .then((events) => {
+          if (Array.isArray(events)) {
+            setNotifications(
+              events.slice(0, 8).map((ev: any) => ({
+                id: String(ev.id),
+                title: `${ev.event_type}: ${ev.payload?.order_number || ev.payload?.batch_number || ev.payload?.payment_number || ev.payload?.name || ev.channel}`,
+                time: new Date(ev.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
+                type: ev.channel || 'system'
+              }))
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAuthenticated, user]);
+
   // Realtime connection status listener
   useEffect(() => {
+    if (!isAuthenticated) {
+      setRealtimeConnected(false);
+      return;
+    }
     try {
       const socket = getSocket();
       setRealtimeConnected(socket.connected);
@@ -107,38 +130,50 @@ export function AppShell({ children }: AppShellProps) {
       const onConnect = () => setRealtimeConnected(true);
       const onDisconnect = () => setRealtimeConnected(false);
 
+      const onStock = (data: any) => {
+        setNotifications(prev => [
+          { id: String(Date.now()), title: `Stock Updated: ${data.payload?.name || 'Item'}`, time: 'Just now', type: 'stock' },
+          ...prev.slice(0, 9)
+        ]);
+      };
+      const onOrder = (data: any) => {
+        setNotifications(prev => [
+          { id: String(Date.now()), title: `Order Created: ${data.payload?.order_number || ''}`, time: 'Just now', type: 'order' },
+          ...prev.slice(0, 9)
+        ]);
+      };
+      const onProduction = (data: any) => {
+        setNotifications(prev => [
+          { id: String(Date.now()), title: `Batch Posted: ${data.payload?.batch_number || ''}`, time: 'Just now', type: 'production' },
+          ...prev.slice(0, 9)
+        ]);
+      };
+      const onPayment = (data: any) => {
+        setNotifications(prev => [
+          { id: String(Date.now()), title: `Payment Received: ${data.payload?.payment_number || ''}`, time: 'Just now', type: 'finance' },
+          ...prev.slice(0, 9)
+        ]);
+      };
+
       socket.on('connect', onConnect);
       socket.on('disconnect', onDisconnect);
-
-      socket.on('STOCK_UPDATED', (data: any) => {
-        setNotifications(prev => [
-          { id: String(Date.now()), title: `📦 Stock: ${data.payload?.name || 'Item'} (${data.payload?.quantity || ''})`, time: 'Just now', type: 'stock' },
-          ...prev.slice(0, 9)
-        ]);
-      });
-
-      socket.on('ORDER_CREATED', (data: any) => {
-        setNotifications(prev => [
-          { id: String(Date.now()), title: `🛒 New Order: ${data.payload?.order_number || ''}`, time: 'Just now', type: 'order' },
-          ...prev.slice(0, 9)
-        ]);
-      });
-
-      socket.on('VARIANCE_FLAGGED', (data: any) => {
-        setNotifications(prev => [
-          { id: String(Date.now()), title: `⚠️ Variance in batch ${data.payload?.batch_number || ''}`, time: 'Just now', type: 'alert' },
-          ...prev.slice(0, 9)
-        ]);
-      });
+      socket.on('STOCK_UPDATED', onStock);
+      socket.on('ORDER_CREATED', onOrder);
+      socket.on('PRODUCTION_POSTED', onProduction);
+      socket.on('PAYMENT_RECEIVED', onPayment);
 
       return () => {
         socket.off('connect', onConnect);
         socket.off('disconnect', onDisconnect);
+        socket.off('STOCK_UPDATED', onStock);
+        socket.off('ORDER_CREATED', onOrder);
+        socket.off('PRODUCTION_POSTED', onProduction);
+        socket.off('PAYMENT_RECEIVED', onPayment);
       };
     } catch {
       setRealtimeConnected(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Keyboard shortcut Ctrl+K for search
   useEffect(() => {

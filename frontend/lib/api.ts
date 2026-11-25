@@ -22,6 +22,34 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+async function downloadAuthenticatedFile(url: string, fallbackFilename: string): Promise<void> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('annapurna_token') : null;
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) {
+    let errorDetail = 'Download failed';
+    try {
+      const data = await res.json();
+      errorDetail = data.detail || errorDetail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match ? match[1] : fallbackFilename;
+
+  const objectUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(objectUrl);
+}
+
 export const api = {
   // Auth
   auth: {
@@ -69,8 +97,29 @@ export const api = {
       const res = await fetch(`${API_BASE}/inventory/ledger?limit=${limit}`, { headers: getAuthHeaders() });
       return handleResponse<any[]>(res);
     },
-    recordPurchase: async (payload: { material_id: string; quantity: string; purchase_rate: string; notes?: string }) => {
+    recordPurchase: async (payload: {
+      material_id: string;
+      quantity: string;
+      purchase_rate: string;
+      supplier_name?: string;
+      supplier_invoice_no?: string;
+      notes?: string;
+    }) => {
       const res = await fetch(`${API_BASE}/inventory/purchases`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      return handleResponse<any>(res);
+    },
+    recordAdjustment: async (payload: {
+      item_type: string;
+      material_id?: string;
+      product_id?: string;
+      quantity_delta: string;
+      reason: string;
+    }) => {
+      const res = await fetch(`${API_BASE}/inventory/adjustments`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload)
@@ -126,7 +175,7 @@ export const api = {
       return handleResponse<any>(res);
     },
     checkAvailability: async (orderId: string) => {
-      const res = await fetch(`${API_BASE}/sales/orders/${orderId}/availability`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/sales/orders/${orderId}/stock-check`, { headers: getAuthHeaders() });
       return handleResponse<any>(res);
     },
     generateInvoice: async (orderId: string) => {
@@ -136,7 +185,7 @@ export const api = {
       });
       return handleResponse<any>(res);
     },
-    dispatchOrder: async (orderId: string, payload: any) => {
+    dispatchOrder: async (orderId: string, payload: { order_id: string; invoice_id: string; partial_quantity?: number; notes?: string }) => {
       const res = await fetch(`${API_BASE}/sales/orders/${orderId}/dispatch`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -147,6 +196,10 @@ export const api = {
     getInvoices: async () => {
       const res = await fetch(`${API_BASE}/sales/invoices`, { headers: getAuthHeaders() });
       return handleResponse<any[]>(res);
+    },
+    downloadInvoicePdf: async (invoiceId: string, invoiceNumber?: string) => {
+      const safeName = `Invoice_${(invoiceNumber || invoiceId).replace(/\//g, '_')}.pdf`;
+      return downloadAuthenticatedFile(`${API_BASE}/sales/invoices/${invoiceId}/pdf`, safeName);
     }
   },
 
@@ -191,6 +244,9 @@ export const api = {
     getBatchCosting: async () => {
       const res = await fetch(`${API_BASE}/reports/batch-costing`, { headers: getAuthHeaders() });
       return handleResponse<any>(res);
+    },
+    downloadReport: async (pathWithQuery: string, fallbackFilename: string) => {
+      return downloadAuthenticatedFile(`${API_BASE}/reports/${pathWithQuery}`, fallbackFilename);
     }
   },
 

@@ -191,4 +191,9 @@ async def run_seed(session_maker=None):
         print("🎉 Canonical benchmark seed complete!")
 
 if __name__ == "__main__":
-    asyncio.run(run_seed())
+    import sys
+    if "--with-mock" in sys.argv:
+        from seed.mock_data import run_mock_seed
+        asyncio.run(run_mock_seed())
+    else:
+        asyncio.run(run_seed())

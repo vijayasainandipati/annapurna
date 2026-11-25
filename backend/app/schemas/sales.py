@@ -49,6 +49,8 @@ class OrderResponse(BaseModel):
     total_order_amount: Decimal
     rejection_reason: Optional[str] = None
     notes: Optional[str] = None
+    invoice_id: Optional[uuid.UUID] = None
+    invoice_number: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = []

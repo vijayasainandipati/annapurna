@@ -1,4 +1,4 @@
-# Annapurna — Order-to-Audit System
+ # Annapurna — Order-to-Audit System
 > **அன்னபூர்ணா • From the first order to the final audit.**  
 > A premium, production-first, real-time manufacturing operations and audit intelligence web application built for small South Indian packaged-snack manufacturers (Murukku, mixture, chips, sweets).
 
@@ -128,7 +128,18 @@ Set-Location 'backend'
 & "C:\Program Files\PostgreSQL\16\bin\postgres.exe" -D "c:\Users\Vijayasai\Desktop\Annapurna\.pgdata"
 ```
 
-### Step 2: Run Backend Server
+### Step 2: Seed Database (Optional) & Run Backend Server
+- **Rich Operational Mock Dataset (45-day history across 5 snack SKUs, 8 customers, 8 batches, 11 orders, invoices, & payments):**
+```powershell
+Set-Location 'c:\Users\Vijayasai\Desktop\Annapurna\backend'
+$env:PYTHONPATH="."; & .\.venv\Scripts\python.exe -m seed.mock_data
+```
+- **Clean Canonical Benchmark State (for isolated benchmark testing):**
+```powershell
+Set-Location 'c:\Users\Vijayasai\Desktop\Annapurna\backend'
+$env:PYTHONPATH="."; & .\.venv\Scripts\python.exe -m seed.seed_data
+```
+- **Start FastAPI Server:**
 ```powershell
 Set-Location 'c:\Users\Vijayasai\Desktop\Annapurna\backend'
 & .\.venv\Scripts\python.exe -m uvicorn app.main:asgi_app --host 127.0.0.1 --port 8000 --reload

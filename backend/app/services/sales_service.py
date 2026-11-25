@@ -48,6 +48,7 @@ class SalesService:
                 .options(
                     selectinload(SalesOrder.customer),
                     selectinload(SalesOrder.salesman),
+                    selectinload(SalesOrder.invoices),
                     selectinload(SalesOrder.items).selectinload(SalesOrderItem.product)
                 )
             )
@@ -147,6 +148,7 @@ class SalesService:
             .options(
                 selectinload(SalesOrder.customer),
                 selectinload(SalesOrder.salesman),
+                selectinload(SalesOrder.invoices),
                 selectinload(SalesOrder.items).selectinload(SalesOrderItem.product)
             )
         )
@@ -216,6 +218,7 @@ class SalesService:
             .options(
                 selectinload(SalesOrder.customer),
                 selectinload(SalesOrder.salesman),
+                selectinload(SalesOrder.invoices),
                 selectinload(SalesOrder.items).selectinload(SalesOrderItem.product)
             )
         )
@@ -480,6 +483,10 @@ class SalesService:
             )
             for it in order.items
         ]
+        active_inv = next(
+            (inv for inv in (order.invoices or []) if inv.status != InvoiceStatusEnum.CANCELLED.value),
+            None
+        )
         return OrderResponse(
             id=order.id,
             order_number=order.order_number,
@@ -496,6 +503,8 @@ class SalesService:
             total_order_amount=order.total_order_amount,
             rejection_reason=order.rejection_reason,
             notes=order.notes,
+            invoice_id=active_inv.id if active_inv else None,
+            invoice_number=active_inv.invoice_number if active_inv else None,
             created_at=order.created_at,
             updated_at=order.updated_at,
             items=items

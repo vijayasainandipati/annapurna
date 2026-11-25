@@ -1,5 +1,8 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
+
+/** @type {(phase: string) => import('next').NextConfig} */
+module.exports = (phase) => ({
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next',
   reactStrictMode: true,
   async rewrites() {
     return [
@@ -13,6 +16,4 @@ const nextConfig = {
       }
     ];
   },
-};
-
-module.exports = nextConfig;
+});
