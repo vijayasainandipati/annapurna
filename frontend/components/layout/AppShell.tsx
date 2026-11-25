@@ -378,58 +378,62 @@ export function AppShell({ children }: AppShellProps) {
               <span className="font-mono text-[10px]">ERP v1.0.0</span>
             </div>
             
-            <button
-              onClick={() => setShowDevDrawer(prev => !prev)}
-              className="w-full text-left text-[10px] text-annapurna-ink-faint hover:text-annapurna-terracotta font-medium flex items-center justify-between pt-1 border-t border-vintage/50"
-            >
-              <span>Development Mode: Role Switcher</span>
-              <ChevronRight className={`w-3 h-3 transform transition-transform ${showDevDrawer ? 'rotate-90' : ''}`} />
-            </button>
+            {process.env.NEXT_PUBLIC_DEMO_MODE === 'true' && (
+              <>
+                <button
+                  onClick={() => setShowDevDrawer(prev => !prev)}
+                  className="w-full text-left text-[10px] text-annapurna-ink-faint hover:text-annapurna-terracotta font-medium flex items-center justify-between pt-1 border-t border-vintage/50"
+                >
+                  <span>Development Mode: Role Switcher</span>
+                  <ChevronRight className={`w-3 h-3 transform transition-transform ${showDevDrawer ? 'rotate-90' : ''}`} />
+                </button>
 
-            {showDevDrawer && (
-              <div className="pt-2 space-y-1">
-                <p className="text-[10px] text-annapurna-ink-muted">Switch test persona:</p>
-                <div className="grid grid-cols-2 gap-1">
-                  {[
-                    { label: 'Admin', user: 'admin', role: 'ADMIN' },
-                    { label: 'Salesman A', user: 'salesman_a', role: 'SALESMAN' },
-                    { label: 'Supervisor', user: 'supervisor', role: 'PRODUCTION_SUPERVISOR' },
-                    { label: 'Owner', user: 'owner', role: 'OWNER' },
-                    { label: 'Accountant', user: 'accountant', role: 'ACCOUNTANT' },
-                  ].map(b => (
-                    <button
-                      key={b.user}
-                      onClick={async () => {
-                        const pwd = b.user === 'admin' ? 'Admin123!' :
-                                    b.user.startsWith('salesman') ? 'Salesman123!' :
-                                    b.user === 'supervisor' ? 'Supervisor123!' :
-                                    b.user === 'owner' ? 'Owner123!' : 'Accountant123!';
-                        try {
-                          const res = await fetch('/api/v1/auth/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: b.user, password: pwd })
-                          });
-                          const data = await res.json();
-                          if (data.access_token) {
-                            useAuthStore.getState().login(data.access_token, data.user);
-                            if (b.role === 'OWNER') router.push('/owner');
-                            else if (b.role === 'SALESMAN') router.push('/salesman');
-                            else if (b.role === 'PRODUCTION_SUPERVISOR') router.push('/production');
-                            else if (b.role === 'ACCOUNTANT') router.push('/reports');
-                            else router.push('/admin');
-                          }
-                        } catch (err: any) {
-                          alert(`Switch failed: ${err.message}`);
-                        }
-                      }}
-                      className="px-2 py-1 text-[10px] font-medium rounded bg-white hover:bg-annapurna-cream border border-vintage text-annapurna-ink text-left truncate"
-                    >
-                      {b.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {showDevDrawer && (
+                  <div className="pt-2 space-y-1">
+                    <p className="text-[10px] text-annapurna-ink-muted">Switch test persona:</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {[
+                        { label: 'Admin', user: 'admin', role: 'ADMIN' },
+                        { label: 'Salesman A', user: 'salesman_a', role: 'SALESMAN' },
+                        { label: 'Supervisor', user: 'supervisor', role: 'PRODUCTION_SUPERVISOR' },
+                        { label: 'Owner', user: 'owner', role: 'OWNER' },
+                        { label: 'Accountant', user: 'accountant', role: 'ACCOUNTANT' },
+                      ].map(b => (
+                        <button
+                          key={b.user}
+                          onClick={async () => {
+                            const pwd = b.user === 'admin' ? 'Admin123!' :
+                                        b.user.startsWith('salesman') ? 'Salesman123!' :
+                                        b.user === 'supervisor' ? 'Supervisor123!' :
+                                        b.user === 'owner' ? 'Owner123!' : 'Accountant123!';
+                            try {
+                              const res = await fetch('/api/v1/auth/login', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ username: b.user, password: pwd })
+                              });
+                              const data = await res.json();
+                              if (data.access_token) {
+                                useAuthStore.getState().login(data.access_token, data.user);
+                                if (b.role === 'OWNER') router.push('/owner');
+                                else if (b.role === 'SALESMAN') router.push('/salesman');
+                                else if (b.role === 'PRODUCTION_SUPERVISOR') router.push('/production');
+                                else if (b.role === 'ACCOUNTANT') router.push('/reports');
+                                else router.push('/admin');
+                              }
+                            } catch (err: any) {
+                              alert(`Switch failed: ${err.message}`);
+                            }
+                          }}
+                          className="px-2 py-1 text-[10px] font-medium rounded bg-white hover:bg-annapurna-cream border border-vintage text-annapurna-ink text-left truncate"
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </aside>

@@ -7,10 +7,11 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function LoginPage() {
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
   const router = useRouter();
   const { login } = useAuthStore();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('Admin123!');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDevAccounts, setShowDevAccounts] = useState(false);
@@ -115,49 +116,51 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Development / Test Mode Dropdown */}
-          <div className="pt-4 border-t border-vintage">
-            <button
-              type="button"
-              onClick={() => setShowDevAccounts(prev => !prev)}
-              className="w-full flex items-center justify-between text-[11px] text-annapurna-ink-muted hover:text-annapurna-terracotta font-medium"
-            >
-              <span>Development / Test Environments (Select Account)</span>
-              <ChevronRight className={`w-3.5 h-3.5 transform transition-transform ${showDevAccounts ? 'rotate-90' : ''}`} />
-            </button>
+          {/* Development / Demo Mode Dropdown (explicitly enabled only via NEXT_PUBLIC_DEMO_MODE=true) */}
+          {isDemoMode && (
+            <div className="pt-4 border-t border-vintage">
+              <button
+                type="button"
+                onClick={() => setShowDevAccounts(prev => !prev)}
+                className="w-full flex items-center justify-between text-[11px] text-annapurna-ink-muted hover:text-annapurna-terracotta font-medium"
+              >
+                <span>Development / Test Environments (Select Account)</span>
+                <ChevronRight className={`w-3.5 h-3.5 transform transition-transform ${showDevAccounts ? 'rotate-90' : ''}`} />
+              </button>
 
-            {showDevAccounts && (
-              <div className="mt-3 space-y-1.5 p-3 rounded-lg bg-annapurna-cream-paper border border-vintage text-xs">
-                <p className="text-[10px] text-annapurna-ink-muted uppercase tracking-wider font-semibold">
-                  Pre-configured Benchmark Accounts:
-                </p>
-                <div className="grid grid-cols-1 gap-1.5 pt-1">
-                  {[
-                    { label: 'Factory Admin (Kalyanasundaram)', u: 'admin', p: 'Admin123!', r: 'Full Operations & Dispatches' },
-                    { label: 'Salesman A (Senthil - Tamil Nadu)', u: 'salesman_a', p: 'Salesman123!', r: 'Mobile Order Entry (Intrastate GST)' },
-                    { label: 'Production Supervisor (Muthuvel)', u: 'supervisor', p: 'Supervisor123!', r: 'Batch Runs, BOM & Variances' },
-                    { label: 'Managing Director / Owner (Sundaram)', u: 'owner', p: 'Owner123!', r: 'Executive Pulse & Financials' },
-                    { label: 'Accountant (Ramanathan)', u: 'accountant', p: 'Accountant123!', r: 'GSTR-1, Invoices & Receivables' },
-                  ].map(acc => (
-                    <button
-                      key={acc.u}
-                      type="button"
-                      onClick={() => handleSelectDevAccount(acc.u, acc.p)}
-                      className="text-left p-2 rounded bg-white hover:bg-annapurna-cream border border-vintage transition-colors flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-semibold text-annapurna-ink">{acc.label}</div>
-                        <div className="text-[10px] text-annapurna-ink-muted">{acc.r}</div>
-                      </div>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-annapurna-cream text-annapurna-terracotta border border-vintage">
-                        Select
-                      </span>
-                    </button>
-                  ))}
+              {showDevAccounts && (
+                <div className="mt-3 space-y-1.5 p-3 rounded-lg bg-annapurna-cream-paper border border-vintage text-xs">
+                  <p className="text-[10px] text-annapurna-ink-muted uppercase tracking-wider font-semibold">
+                    Pre-configured Benchmark Accounts:
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5 pt-1">
+                    {[
+                      { label: 'Factory Admin (Kalyanasundaram)', u: 'admin', p: 'Admin123!', r: 'Full Operations & Dispatches' },
+                      { label: 'Salesman A (Senthil - Tamil Nadu)', u: 'salesman_a', p: 'Salesman123!', r: 'Mobile Order Entry (Intrastate GST)' },
+                      { label: 'Production Supervisor (Muthuvel)', u: 'supervisor', p: 'Supervisor123!', r: 'Batch Runs, BOM & Variances' },
+                      { label: 'Managing Director / Owner (Sundaram)', u: 'owner', p: 'Owner123!', r: 'Executive Pulse & Financials' },
+                      { label: 'Accountant (Ramanathan)', u: 'accountant', p: 'Accountant123!', r: 'GSTR-1, Invoices & Receivables' },
+                    ].map(acc => (
+                      <button
+                        key={acc.u}
+                        type="button"
+                        onClick={() => handleSelectDevAccount(acc.u, acc.p)}
+                        className="text-left p-2 rounded bg-white hover:bg-annapurna-cream border border-vintage transition-colors flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="font-semibold text-annapurna-ink">{acc.label}</div>
+                          <div className="text-[10px] text-annapurna-ink-muted">{acc.r}</div>
+                        </div>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-annapurna-cream text-annapurna-terracotta border border-vintage">
+                          Select
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 text-center text-[11px] text-annapurna-ink-muted">

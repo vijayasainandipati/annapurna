@@ -102,9 +102,11 @@ Set-Location 'backend'
 
 ---
 
-## 5. Factory Demo Credentials (1-Click Login)
+## 5. Seed Credentials (Local Dev & Test Benchmark Only)
 
-| Role | Username | Password | Full Name & Title |
+> **Security Note:** Never reuse seeded development passwords or local defaults in any production deployment. Set a unique `SECRET_KEY` and `POSTGRES_PASSWORD` via `.env` (see `.env.example`), and set `APP_ENV=production`. Demo account switching in the UI is hidden by default unless `NEXT_PUBLIC_DEMO_MODE=true` is explicitly set.
+
+| Role | Username | Seed Password | Full Name & Title |
 |---|---|---|---|
 | **Admin** | `admin` | `Admin123!` | Kalyanasundaram (Factory Administrator) |
 | **Owner** | `owner` | `Owner123!` | Annapurna Sundaram (Factory Owner) |
@@ -158,6 +160,8 @@ npm run dev
 ## 7. How to Run with Docker Compose
 
 ```bash
+cp .env.example .env
+# Edit .env to set strong POSTGRES_PASSWORD and SECRET_KEY values
 docker compose up --build
 ```
 This spins up:

@@ -6,9 +6,9 @@ services:
     container_name: annapurna-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: annapurna
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-annapurna}
     ports:
       - "5433:5432"
     volumes:
@@ -38,9 +38,10 @@ services:
     container_name: annapurna-backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/annapurna
+      - APP_ENV=${APP_ENV:-production}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-annapurna}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=annapurna_super_secure_jwt_secret_key_change_in_production_2026_xyz
+      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
       - ACCESS_TOKEN_EXPIRE_MINUTES=1440
       - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
     ports:
@@ -59,6 +60,7 @@ services:
     restart: unless-stopped
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE:-false}
     ports:
       - "3000:3000"
     depends_on:
